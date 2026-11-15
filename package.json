@@ -1,0 +1,20 @@
+{
+  "name": "gravestones-lanshiyi",
+  "version": "2.0.13",
+  "private": true,
+  "description": "Minecraft 基岩版墓碑模组 · 简体中文二改",
+  "scripts": {
+    "test": "node --test tests/*.test.js && python -m unittest discover -s tests -p test_*.py",
+    "check": "tsc -p jsconfig.json && python tools/validate.py",
+    "build": "python tools/build.py",
+    "test:native": "python tools/run_native_tests.py"
+  },
+  "keywords": [],
+  "author": "lanshiyi <3199912548@qq.com>",
+  "type": "module",
+  "devDependencies": {
+    "@minecraft/server": "2.0.0",
+    "@minecraft/server-ui": "2.0.0",
+    "typescript": "~5.9.3"
+  }
+}

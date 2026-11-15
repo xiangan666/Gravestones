@@ -1,0 +1,29 @@
+{
+  "format_version": "1.19.0",
+  "minecraft:recipe_shaped": {
+    "description": {
+    "identifier": "effect99:admin_key"
+    },  
+    "tags": [ "crafting_table" ],
+    "pattern": [
+      "ig ",
+      "ig ",
+      " b "
+    ],
+    "key": {
+      "i": {
+        "item": "minecraft:netherite_scrap"
+      },
+      "g": {
+        "item": "minecraft:netherite_ingot"
+      },
+      "b": {
+        "item": "minecraft:bone"
+      }
+    },
+    "result": {
+      "item": "effect99:admin_key",
+      "count": 1
+    }
+  }
+}

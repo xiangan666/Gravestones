@@ -1,0 +1,31 @@
+name: Bug报告
+description: 报告汉化、墓碑库存、传送或定位问题
+title: "[Bug] "
+body:
+  - type: input
+    id: versions
+    attributes:
+      label: 游戏版本与模组版本
+      placeholder: 例如：基岩版1.21.90，墓碑模组2.0.13
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 平台与运行环境
+      description: Windows/Android/iOS等；单人、联机或BDS；是否升级旧存档
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 重现步骤、预期与实际结果
+      description: 涉及墓碑时请附编号、状态、是否移动过和目标维度
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 内容日志与其他模组
+      description: 隐去个人信息；不要公开上传完整个人世界
+      render: text

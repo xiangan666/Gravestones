@@ -1,0 +1,28 @@
+{
+   "format_version": "1.21.60",
+   "minecraft:crafting_items_catalog": {
+      "categories": [
+         {
+            "category_name": "construction",
+            "groups": [
+               {
+                  "group_identifier": {
+                     "icon": "effect99:grave",
+                     "name": "minecraft:itemGroup.name.effectoo.graves"
+                  },
+                  "items": [
+                     "effect99:wooden_grave",
+                     "effect99:stone_slab_grave",
+                     "effect99:stone_grave",
+                     "effect99:stone_cross_grave",
+                     "effect99:golden_netherite_grave",
+                     "effect99:golden_cross_netherite_grave",
+                     "effect99:golden_blackstone_grave",
+                     "effect99:blackstone_grave"
+                  ]
+               }
+            ]
+         }
+      ]
+   }
+}

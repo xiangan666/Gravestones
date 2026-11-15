@@ -1,0 +1,46 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "§l§7墓碑模组 §r2.0.13 · 汉化二改",
+    "description": "原作 Effect99 | 汉化二改 lanshiyi | 3199912548@qq.com",
+    "uuid": "b17af4d5-486d-480e-8d1f-f864c9a33a20",
+    "version": [
+      2,
+      0,
+      13
+    ],
+    "min_engine_version": [
+      1,
+      21,
+      90
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "d495b00f-f996-41d7-b57c-0cf4f77e297b",
+      "version": [
+        2,
+        0,
+        13
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "0db99973-12b3-4c67-abbb-90e4726e73e1",
+      "version": [
+        2,
+        0,
+        13
+      ]
+    }
+  ],
+  "metadata": {
+    "product_type": "addon",
+    "authors": [
+      "Effect99",
+      "lanshiyi"
+    ]
+  }
+}

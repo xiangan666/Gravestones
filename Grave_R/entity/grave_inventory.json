@@ -1,0 +1,20 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "entity:grave_inventory",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/entity/transparent"
+      },
+      "geometry": {
+        "default": "geometry.text"
+      },
+      "render_controllers": [
+        "controller.render.default"
+      ]
+    }
+  }
+}

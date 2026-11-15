@@ -1,0 +1,20 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "lanshiyi:grave_drop",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/blocks/stone_grave"
+      },
+      "geometry": {
+        "default": "geometry.grave_drop"
+      },
+      "render_controllers": [
+        "controller.render.default"
+      ]
+    }
+  }
+}
