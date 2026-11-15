@@ -1,6 +1,6 @@
 """Build and verify a deterministic mcaddon plus its version-specific SHA-256 file."""
 from pathlib import Path
-from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
+from zipfile import ZipFile, ZipInfo, ZIP_STORED
 import argparse
 import hashlib
 import json
@@ -49,10 +49,12 @@ def build():
     with tempfile.NamedTemporaryFile(dir=output.parent, suffix=".tmp", delete=False) as temporary:
         staged = Path(temporary.name)
     try:
-        with ZipFile(staged, "w", ZIP_DEFLATED, compresslevel=9) as archive:
+        with ZipFile(staged, "w", ZIP_STORED) as archive:
             for name, path in sorted(files.items()):
                 entry = ZipInfo(name, (2026, 11, 9, 0, 0, 0))
-                entry.compress_type = ZIP_DEFLATED
+                # Stored entries avoid Python/zlib-version-dependent compressed bytes.
+                entry.create_system = 3
+                entry.compress_type = ZIP_STORED
                 entry.external_attr = 0o100644 << 16
                 archive.writestr(entry, path.read_bytes())
         checksum = hashlib.sha256(staged.read_bytes()).hexdigest()

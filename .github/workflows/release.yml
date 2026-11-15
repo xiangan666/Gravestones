@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 已推送的版本标签，例如 v2.0.14（恢复中断的发布）
+        description: 已推送的版本标签，例如 v2.0.15（恢复中断的发布）
         required: true
         type: string
 permissions:

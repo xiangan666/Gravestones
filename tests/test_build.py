@@ -6,6 +6,7 @@ import importlib.util
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -48,7 +49,13 @@ class BuildTests(unittest.TestCase):
             builder = self.fixture(root)
             output = builder.build()
             first = output.read_bytes()
-            self.assertEqual(builder.build().read_bytes(), first)
+            native_info = builder.ZipInfo
+            def foreign_platform(*args, **kwargs):
+                result = native_info(*args, **kwargs)
+                result.create_system = 0 if native_info(*args, **kwargs).create_system != 0 else 3
+                return result
+            with patch.object(builder, "ZipInfo", side_effect=foreign_platform):
+                self.assertEqual(builder.build().read_bytes(), first)
             with ZipFile(output) as archive:
                 self.assertEqual(set(archive.namelist()), {"Grave_B/manifest.json", "Grave_R/manifest.json", "NOTICE.md", "INSTALL.md"})
                 self.assertEqual(archive.read("NOTICE.md"), b"Original attribution")

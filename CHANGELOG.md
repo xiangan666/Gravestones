@@ -4,7 +4,7 @@
 
 ## [Unreleased]
 
-## [2.0.14] - 2026-11-15
+## [2.0.15] - 2026-11-15
 
 ### Added
 
@@ -17,9 +17,18 @@
 
 ### Changed
 
-- 本轮工程版本2.0.13 → 2.0.14，沿用现有游戏行为、物品数据和存档结构。
+- 本轮工程版本2.0.13 → 2.0.15，沿用现有游戏行为、物品数据和存档结构。
 - 源码校验不再依赖工作区私有的原始2.0.8安装包，克隆后可独立安装依赖并验证。
 - 建立项目本地Git历史与真实公开仓库，保留原作和历次本地版本记录。
+
+### Fixed
+
+- 草稿Release通过列表和ID查找，避免按标签查询仅返回正式发布而导致404。
+- ZIP使用不压缩条目并固定创建平台，消除Windows/Linux平台标记和Python/zlib版本导致的跨环境摘要差异。
+
+## [2.0.14] - 2026-11-15
+
+未发布候选：两平台检查通过，但发布时发现草稿查询404及归档平台/压缩器差异，正式发布前已停止。保留远程候选标签和失败的Actions记录，移除未发布草稿；2.0.15包含本轮完整工程整理及上述修正。
 
 ## [2.0.13] - 2026-11-14
 
@@ -132,10 +141,11 @@
 - 包内实际 manifest 版本为1.0.0，展示版本为V2.0.8；本次沿用展示版本向上递增为2.0.9。
 - 原始归档保持不变，作为溯源与回退依据。
 
-[Unreleased]: https://github.com/xiangan666/Gravestones/compare/v2.0.14...HEAD
+[Unreleased]: https://github.com/xiangan666/Gravestones/compare/v2.0.15...HEAD
 [2.0.13]: docs/RELEASE-2.0.13.md
 [2.0.12]: docs/RELEASE-2.0.12.md
 [2.0.11]: docs/RELEASE-2.0.11.md
 [2.0.10]: docs/RELEASE-2.0.10.md
 [2.0.9]: docs/RELEASE-2.0.9.md
-[2.0.14]: https://github.com/xiangan666/Gravestones/releases/tag/v2.0.14
+[2.0.14]: docs/RELEASE-2.0.14.md
+[2.0.15]: https://github.com/xiangan666/Gravestones/releases/tag/v2.0.15

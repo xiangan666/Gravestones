@@ -33,6 +33,19 @@ def api(endpoint, missing=False):
         raise
 
 
+def find_release(repository, tag):
+    # The by-tag REST endpoint only finds published releases; drafts need the list API.
+    page = 1
+    while True:
+        releases = api(f"repos/{repository}/releases?per_page=100&page={page}")
+        found = next((release for release in releases if release["tag_name"] == tag), None)
+        if found:
+            return found
+        if len(releases) < 100:
+            return None
+        page += 1
+
+
 def remote_commit(repository, tag):
     ref = api(f"repos/{repository}/git/ref/tags/{tag}")["object"]
     for _ in range(5):
@@ -77,8 +90,7 @@ def publish(repository, tag, verify_only=False):
     archive = artifact_path(ROOT)
     verify(archive, ROOT)
     assets = [archive, archive.with_suffix(archive.suffix + ".sha256")]
-    endpoint = f"repos/{repository}/releases/tags/{tag}"
-    release = api(endpoint, missing=True)
+    release = find_release(repository, tag)
     if verify_only and (not release or release["draft"]):
         raise ValueError("No published release exists for verification.")
     if not verify_only and (not release or release["draft"]):
@@ -93,6 +105,10 @@ def publish(repository, tag, verify_only=False):
                 gh("release", "create", tag, "--repo", repository, "--draft", "--verify-tag", "--title", f"墓碑模组 {version}", "--notes-file", str(notes_path))
             else:
                 gh("release", "edit", tag, "--repo", repository, "--title", f"墓碑模组 {version}", "--notes-file", str(notes_path))
+        release = find_release(repository, tag)
+        if not release or not release["draft"]:
+            raise ValueError("Expected a draft before uploading release assets.")
+        endpoint = f"repos/{repository}/releases/{release['id']}"
         gh("release", "upload", tag, *(str(path) for path in assets), "--repo", repository, "--clobber")
         release = api(endpoint)
         verify_downloads(repository, tag, release, assets)
