@@ -1,13 +1,16 @@
 # 贡献指南
 
-维护者：lanshiyi，3199912548@qq.com。
+汉化与二次开发：lanshiyi；原作者：Effect99。
+
+- 维护联系姓名：相安。
+- 维护联系邮箱：3199912548@qq.com。
 
 ## 提交前
 
 1. 阅读 `NOTICE.md`，保留原作者与二改作者归属。
-2. 使用 Node.js 24+、Python 3.10+，运行 `npm ci`。
+2. 使用 Node.js 24+、npm 11+、Python 3.10+，运行 `npm ci`。
 3. 修改对应模块，避免变更已有包 UUID 和物品/实体标识符。
-4. 运行 `npm run check`、`npm test`、`npm run build`。
+4. 运行 `npm run check`、`npm test`、`npm run build`、`npm run build:verify`。
 5. 改动死亡、物品转移或实体定义时，在备份世界执行 `docs/TESTING.md` 中相应游戏内验收。
 6. 实体格式和原生库存持久化改动，还应使用官方Windows BDS ZIP运行`npm run test:native -- --server-zip <文件路径>`；JS模拟不能代替引擎对组件的解析。
 
@@ -28,3 +31,15 @@
 ## Issue 与 Pull Request
 
 Bug报告应包含游戏版本、平台、单人/BDS、包版本、实验功能设置、重现步骤和相关内容日志。不要公开上传含个人信息的完整世界。PR说明具体问题、改后行为、自动化结果、游戏内实测情况和存档兼容影响。
+
+## 工作流与版本
+
+本地和CI使用锁文件执行 `npm ci`。`.editorconfig`、`.gitattributes`统一UTF-8与文本LF换行；Python使用4空格，JavaScript/JSON/YAML沿用2空格。现有检查包括官方API类型、资源与版本结构、Markdown本地链接；不引入会重排整个项目的格式化迁移。
+
+每轮实际修改（包括文档、脚本和CI）递增版本。版本事实源为 `package.json`，运行 `npm run version:sync -- <新版本>` 同步锁文件、两包版本、模块依赖及运行时常量。该命令先保存被覆盖文件的临时备份再原子替换，不重新生成纹理或实体。
+
+从实际默认分支建立主题分支或沿用已有工作分支，采用 `fix:`、`docs:`、`build:` 等Conventional Commits标题。审阅完整差异，显式暂存本任务文件，不重置或提交无关内容，不修改全局作者身份。源素材署名和许可证边界按NOTICE保留。
+
+本轮修改统一提交、推送并发布一个版本；CI、标签、Release和资产必须对应同一提交。正式发布步骤及中断恢复见[发布流程](docs/RELEASING.md)。保护规则要求评审时通过真实评审流程，不绕过规则。推送后跟进检查和正式发布状态；失败时明确具体阻塞，不能以草稿代替交付。
+
+月度Dependabot检查npm与GitHub Actions。Minecraft脚本模块依赖受最低引擎兼容性约束，不自动升级；修改这些版本时核对官方API和实际引擎验收。

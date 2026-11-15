@@ -6,3 +6,14 @@ __pycache__/
 Thumbs.db
 *.log
 .native-test/
+
+# Local originals, credentials and recovery files are not release source.
+/*.mcaddon
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.tmp
+*.bak
+.maintenance-backups/

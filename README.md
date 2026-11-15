@@ -1,8 +1,12 @@
 # 墓碑模组 · 简体中文二改
 
-基于 **Effect99 的 Gravestones V2.0.8**，当前版本 **2.0.13**。
+基于 **Effect99 的 Gravestones V2.0.8**，当前版本 **2.0.14**。
 
-功能更新与问题修正统一通过递增版本号交付，每个版本使用标准名称的单一安装包。
+功能更新与问题修正统一通过递增版本号交付，每个版本提供一个标准名称安装包及配套SHA-256校验文件。
+
+[GitHub仓库](https://github.com/xiangan666/Gravestones) · [版本下载](https://github.com/xiangan666/Gravestones/releases) · [文档导航](docs/README.md)
+
+当前2.0.14整理版本同步、验证、打包和正式发布流程，沿用2.0.13的游戏行为及存档格式。发布状态以GitHub Releases中的正式版本为准。
 
 - 汉化与二次开发：**lanshiyi**
 - 联系方式：**3199912548@qq.com**
@@ -51,17 +55,17 @@
 
 ## 安装
 
-1. 下载仓库 Releases 中的 `Gravestones-lanshiyi-v2.0.13.mcaddon`，或在源码目录执行 `npm run build`，取得 `dist/` 中的同名文件。每个版本的行为包和资源包都在同一个安装包内；打新版本保留旧版安装包及其他已有文件。
+1. 从[GitHub Releases](https://github.com/xiangan666/Gravestones/releases)下载 `Gravestones-lanshiyi-v2.0.14.mcaddon` 及同名 `.sha256` 校验文件，核对摘要后打开安装。也可在源码目录执行 `npm run build`，取得 `dist/` 中的同名产物。一个安装包包含行为包、资源包、安装与归属说明；构建保留历史版本文件。
 2. 双击/打开 `.mcaddon` 导入 Minecraft 基岩版。
-3. 在世界设置中同时启用“墓碑模组 2.0.13”的**行为包和资源包**。升级时替换原包，避免同时运行两套墓碑脚本。
+3. 在世界设置中同时启用“墓碑模组 2.0.14”的**行为包和资源包**。升级时替换原包，避免同时运行两套墓碑脚本。
 4. 允许命令/作弊，供旧保险库恢复及远距离传送按需创建常加载区域；预留恢复和传送所需的区域配额。保险库通过一个共享的原生常加载锚点维持实体加载，不为每座墓碑单独创建锚点。
 5. 进入世界查看内容日志，确认没有包依赖或脚本报错，随后在测试世界死亡验证。
 
 本模组延续原版方案，自动开启并维护 `keepInventory=true`，然后自行把遗物转入墓碑。已有绑定钥匙、寻墓器及可搬运墓碑留在玩家身上，避免遗物形成循环嵌套。即使只带钥匙且零经验，再次死亡也会创建新编号墓碑，已有墓碑继续保留。保险库创建失败或附近无可用位置时，保留物品与经验并提示；不会故意删掉玩家遗物。不要与同时接管死亡背包的其他模组共用。
 
-### 从2.0.9 / 2.0.10 / 2.0.11 / 2.0.12升级
+### 从2.0.9 / 2.0.10 / 2.0.11 / 2.0.12 / 2.0.13升级
 
-先备份世界，再导入2.0.13并确认世界启用了新版本的两包。包UUID保持不变，已有墓碑、钥匙与编号沿用；同一座墓碑挖起、再次放置保留编号，新死亡生成的新墓碑才递增编号。
+先备份世界，再导入2.0.14并确认世界启用了新版本的两包。包UUID保持不变，已有墓碑、钥匙与编号沿用；同一座墓碑挖起、再次放置保留编号，新死亡生成的新墓碑才递增编号。
 
 2.0.12起，全部领取墓碑遗物后自动消耗本次使用的普通绑定钥匙，旧版已有钥匙同样适用，无需重新生成。背包满、部分领取、错误钥匙或库存加载失败都不会提前消耗。其他未使用的钥匙不会被全局清理；已开启墓碑不能再次领取或传送。
 
@@ -80,13 +84,14 @@
 
 ## 本地开发
 
-需要 Node.js 24+、npm、Python 3.10+。日常检查与打包不依赖 Pillow；重新生成像素图标时才需要 `python -m pip install pillow`。
+需要 Node.js 24+、npm 11+、Python 3.10+；CI使用Node.js 24和Python 3.12，在Windows与Linux上校验。日常检查与打包不依赖 Pillow；重新生成像素图标时才需要 `python -m pip install pillow`。
 
 ```powershell
 npm ci
 npm run check
 npm test
 npm run build
+npm run build:verify
 ```
 
 源码结构：
@@ -96,7 +101,10 @@ Grave_B/                 行为包：方块、物品、持久实体和脚本
 Grave_R/                 资源包：模型、纹理、中文语言文件
 tests/                   经验/状态单元测试与模拟运行集成测试
 tools/validate.py        JSON、依赖、UUID、汉化与保护组件检查
-tools/build.py           可重复构建及 SHA-256 校验
+tools/build.py           可重复构建、校验文件和源码逐项核对
+tools/sync_version.py    清单、包与脚本版本同步
+tools/check_docs.py      本地文档链接检查
+tools/release.py         标签、草稿资产、正式发布及下载核对
 tools/prepare_assets.py  生成元数据、物品定义和像素图标
 tools/run_native_tests.py 官方Windows BDS双会话原生回归（需自行提供官方服务端ZIP）
 docs/                    架构、验收及 GitHub 发布说明
@@ -105,15 +113,21 @@ docs/                    架构、验收及 GitHub 发布说明
 
 ## GitHub 文档
 
+- [安装与升级](docs/INSTALL.md)
+- [常见问题排查](docs/TROUBLESHOOTING.md)
+- [本轮维护记录](docs/MAINTENANCE.md)
 - [版本更新记录](CHANGELOG.md)
 - [设计与持久化说明](docs/DESIGN.md)
 - [测试状态及游戏内验收](docs/TESTING.md)
 - [发布说明与操作](docs/RELEASING.md)
-- [2.0.13 发布说明](docs/RELEASE-2.0.13.md)
+- [2.0.14 发布说明](docs/RELEASE-2.0.14.md)
+- [2.0.13 历史发布说明](docs/RELEASE-2.0.13.md)
 - [2.0.12 历史发布说明](docs/RELEASE-2.0.12.md)
 - [2.0.11 历史发布说明](docs/RELEASE-2.0.11.md)
 - [2.0.10 历史发布说明](docs/RELEASE-2.0.10.md)
 - [贡献指南](CONTRIBUTING.md)
 - [原作归属与授权状态](NOTICE.md)
 
-未配置远程仓库、未上传代码或创建线上 Release。本仓库文档与工作流可在确认原素材发布授权后上传使用。
+维护联系姓名：相安；邮箱：3199912548@qq.com。普通问题可使用仓库Issue模板，敏感问题见[安全反馈](SECURITY.md)。原作者和历史翻译署名、素材权利状态见[NOTICE](NOTICE.md)；本项目未为上游素材补发开源许可证。
+
+版本事实源为 `package.json`。维护时使用 `npm run version:sync -- <新版本>`，同步文档与更新日志，再按[发布流程](docs/RELEASING.md)提交并推送版本标签。正式安装包与校验文件在Releases下载；不能把本地包或草稿当作已发布版本。

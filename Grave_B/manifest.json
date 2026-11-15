@@ -1,13 +1,13 @@
 {
   "format_version": 2,
   "header": {
-    "name": "§l§7墓碑模组 §r2.0.13 · 汉化二改",
+    "name": "§l§7墓碑模组 §r2.0.14 · 汉化二改",
     "description": "原作 Effect99 | 汉化二改 lanshiyi | 3199912548@qq.com",
     "uuid": "0db99973-12b3-4c67-abbb-90e4726e73e1",
     "version": [
       2,
       0,
-      13
+      14
     ],
     "min_engine_version": [
       1,
@@ -22,7 +22,7 @@
       "version": [
         2,
         0,
-        13
+        14
       ]
     },
     {
@@ -31,7 +31,7 @@
       "version": [
         2,
         0,
-        13
+        14
       ],
       "entry": "scripts/grave.js"
     }
@@ -46,7 +46,7 @@
       "version": [
         2,
         0,
-        13
+        14
       ]
     },
     {

@@ -15,6 +15,10 @@ def validate():
             count += 1
     manifests = [json.loads((ROOT / pack / "manifest.json").read_text(encoding="utf-8")) for pack in ("Grave_B", "Grave_R")]
     expected = tuple(map(int, json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"].split(".")))
+    package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+    lock = json.loads((ROOT / "package-lock.json").read_text(encoding="utf-8"))
+    assert lock["version"] == lock["packages"][""]["version"] == package["version"]
+    assert lock["packages"][""]["devDependencies"] == package["devDependencies"]
     seen = set()
     for manifest in manifests:
         assert tuple(manifest["header"]["version"]) == expected
@@ -32,6 +36,7 @@ def validate():
                 assert tuple(dep["version"]) == expected
     dependencies = {d["module_name"]: d["version"] for d in manifests[0]["dependencies"] if "module_name" in d}
     assert dependencies == {"@minecraft/server": "2.0.0", "@minecraft/server-ui": "2.0.0"}
+    assert manifests[1]["header"]["uuid"] == "b17af4d5-486d-480e-8d1f-f864c9a33a20", "Preserve resource pack upgrade identity"
     assert manifests[0]["header"]["uuid"] == "0db99973-12b3-4c67-abbb-90e4726e73e1", "Preserve dynamic property ownership for upgrades"
     assert (ROOT / "Grave_B/scripts/grave.js").exists()
     version_text = ".".join(map(str, expected))
@@ -77,7 +82,6 @@ def validate():
     assert not re.search(r"\.isSolid\b", re.sub(r"//[^\n]*", "", source)), "Stable API 2.0 has no Block.isSolid; query native collisions instead"
     for old_ui in ("Place of death:", "You need a key", "R.I.P", "Gravestone unlocked", "You are not the owner"):
         assert old_ui not in source
-    assert (ROOT / "Gravestones V2.0.8.mcaddon").exists()
     print(f"Validated {count} JSON files, {len(item_ids)} items, 4 Chinese language files, UUIDs, dependencies and persistence/protection definitions.")
 
 

@@ -1,24 +1,45 @@
 name: 验证与构建
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '24'
+          node-version-file: .node-version
           cache: npm
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
-          python-version: '3.12'
+          python-version-file: .python-version
       - run: npm ci
       - run: npm run check
       - run: npm test
       - run: npm run build
-      - uses: actions/upload-artifact@v4
+      - run: npm run build:verify
+      - name: 读取资产版本
+        id: version
+        shell: bash
+        run: python -c 'import json; print("value=" + json.load(open("package.json", encoding="utf-8"))["version"])' >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: Gravestones-lanshiyi
-          path: dist/*.mcaddon
+          name: Gravestones-${{ matrix.os }}
+          path: |
+            dist/Gravestones-lanshiyi-v${{ steps.version.outputs.value }}.mcaddon
+            dist/Gravestones-lanshiyi-v${{ steps.version.outputs.value }}.mcaddon.sha256
+          if-no-files-found: error
+          retention-days: 14
