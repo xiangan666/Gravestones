@@ -35,11 +35,12 @@ export async function teleportToGrave(player, token) {
   locks.add(grave.id);
   let destination;
   try {
-    destination = await loadDestination(grave, LANDING_RADIUS);
+    player.sendMessage("§e正在加载墓碑附近区块，请保持手持钥匙……");
+    destination = await loadDestination(grave, LANDING_RADIUS, () => player.isValid && !!sameHeldKey(player, token));
     if (!player.isValid) return;
-    if (!destination) { player.sendMessage("§e目标区块尚未加载或常加载区域配额不足。墓碑记录仍然有效，未扣费，请稍后重试。 "); return; }
     item = sameHeldKey(player, token);
     if (!item) { player.sendMessage("§e钥匙已切换，传送取消，未扣费。 "); return; }
+    if (!destination) { player.sendMessage("§e目标区块尚未加载。请确认世界允许命令，并至少预留1个临时常加载区域名额。墓碑记录仍然有效，未扣费，请稍后重试。 "); return; }
     reason = teleportReason(grave, keyUsed(item));
     if (reason) { player.sendMessage(`§e${reason}`); return; }
     if (destination.block.typeId !== grave.blockId) { player.sendMessage("§e区块已加载，但原位置的墓碑方块不匹配，传送已取消，未扣费。请联系管理员检查。 "); return; }
@@ -60,9 +61,14 @@ export async function teleportToGrave(player, token) {
     const inv = container(player);
     if (!consumeItem(inv, "minecraft:ender_pearl", 1)) { player.sendMessage("§c需要1个末影珍珠，未使用传送次数。 "); return; }
     const changed = [];
+    const keySlot = player.selectedSlotIndex;
+    let keyUpdated = false;
     try {
       // Persist before the successful teleport; a cloned key shares this spent token.
       spendKey(item);
+      // Crossing dimensions can invalidate both the entity and its old inventory handle.
+      inv.setItem(keySlot, updateTool(item, grave));
+      keyUpdated = true;
       if (platform) for (const block of platform.floor) {
         if (!block.isAir && !["minecraft:water", "minecraft:flowing_water", "minecraft:lava", "minecraft:flowing_lava"].includes(block.typeId)) throw new Error("落脚台位置发生变化，请重试。");
         changed.push({block, permutation: block.permutation});
@@ -72,12 +78,12 @@ export async function teleportToGrave(player, token) {
     } catch (error) {
       for (const {block, permutation} of changed.reverse()) { try { block.setPermutation(permutation); } catch { /* Preserve the refund even if a block unloads. */ } }
       restoreKey(item);
+      if (keyUpdated) inv.setItem(keySlot, updateTool(item, grave));
       const remainder = inv.addItem(new ItemStack("minecraft:ender_pearl"));
       if (remainder) player.dimension.spawnItem(remainder, player.location);
       player.sendMessage(`§e传送失败，已退还末影珍珠，次数未消耗：${error.message}`);
       return;
     }
-    inv.setItem(player.selectedSlotIndex, updateTool(item, grave));
     if (platform) player.sendMessage("§e附近没有天然安全落点，已在墓碑附近空旷处搭建3×3圆石落脚台。落脚台会保留。");
     player.sendMessage(`§a已传送至墓碑 #${grave.id}，消耗1个末影珍珠。钥匙保留，传送次数已用完。`);
   } finally { destination?.release(); locks.delete(grave.id); }

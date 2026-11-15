@@ -1,7 +1,7 @@
 """Run two bounded BDS sessions in a fresh, disposable world (Windows only).
 
 Pass an official Windows BDS ZIP. Never points at, edits, or deletes a user world.
-Native containers and a player facade exercise item persistence and claims;
+Native containers and player facades exercise persistence, claims and entity teleports;
 real Player death/input/UI/teleport must still be checked in a client.
 """
 from pathlib import Path
@@ -19,7 +19,7 @@ from zipfile import ZipFile
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def session(server, phase):
+def session(server, phase, timeout=60):
     log = server.parent / f"phase-{phase}.log"
     process = subprocess.Popen(
         [str(server / "bedrock_server.exe")], cwd=server, stdin=subprocess.PIPE,
@@ -38,7 +38,7 @@ def session(server, phase):
     reader = threading.Thread(target=read, daemon=True)
     reader.start()
     passed, errors = False, []
-    deadline = time.monotonic() + 60
+    deadline = time.monotonic() + timeout
     try:
         while time.monotonic() < deadline and process.poll() is None:
             try:
@@ -74,6 +74,7 @@ def main():
     sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--server-zip", type=Path, required=True)
+    parser.add_argument("--probe", choices=("inventory", "teleport"), default="inventory")
     args = parser.parse_args()
     if os.name != "nt":
         parser.error("This harness requires the official Windows BDS build.")
@@ -87,7 +88,8 @@ def main():
     script = server / "behavior_packs/Grave_B/scripts/grave.js"
     with script.open("a", encoding="utf-8") as f:
         f.write('\nimport "./native-probe.js";\n')
-    shutil.copy2(ROOT / "tools/native-probe.js", script.with_name("native-probe.js"))
+    probe = "native-probe.js" if args.probe == "inventory" else "native-teleport-probe.js"
+    shutil.copy2(ROOT / "tools" / probe, script.with_name("native-probe.js"))
     world = server / "worlds/NativeRegression"
     world.mkdir(parents=True)
     for pack, kind in (("Grave_B", "behavior"), ("Grave_R", "resource")):
@@ -102,9 +104,10 @@ def main():
         "content-log-console-output-enabled=true", "emit-server-telemetry=false", "gamemode=survival",
     ]) + "\n", encoding="utf-8")
     print(f"Disposable server: {server}", flush=True)
-    session(server, 1)
-    session(server, 2)
-    print("Native inventory persistence, claims and landing regression passed.", flush=True)
+    timeout = 180 if args.probe == "teleport" else 60
+    session(server, 1, timeout)
+    session(server, 2, timeout)
+    print(f"Native {args.probe} regression passed.", flush=True)
 
 
 if __name__ == "__main__":

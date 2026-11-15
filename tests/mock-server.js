@@ -69,9 +69,13 @@ export class Block {
   getComponent(name) { return name === "minecraft:inventory" && this.inventory ? {container: this.inventory} : undefined; }
 }
 export class Dimension {
-  constructor(id) { this.id = id; this.heightRange = {min: -64, max: 320}; this.blocks = new Map(); this.unloaded = false; this.loadWorks = true; this.commands = []; }
+  constructor(id) { this.id = id; this.heightRange = {min: -64, max: 320}; this.blocks = new Map(); this.unloaded = false; this.loadWorks = true; this.commands = []; this.areas = new Map(); this.areaLimit = 10; this.loadDelay = 0; }
   getBlock(loc) {
-    if (this.unloaded) return undefined;
+    if (this.unloaded) {
+      const native = [...entities.values()].some(e => e.isValid && e.dimension === this && e.typeId === "lanshiyi:grave_vault_anchor" && Math.abs(e.location.x - loc.x) < 32 && Math.abs(e.location.z - loc.z) < 32);
+      const loaded = this.loadWorks && [...this.areas.values()].some(a => a.readyAt <= system.currentTick && Math.floor(loc.x / 16) >= a.minX && Math.floor(loc.x / 16) <= a.maxX && Math.floor(loc.z / 16) >= a.minZ && Math.floor(loc.z / 16) <= a.maxZ);
+      if (!native && !loaded) return undefined;
+    }
     const p = {x: Math.floor(loc.x), y: Math.floor(loc.y), z: Math.floor(loc.z)};
     const key = `${p.x},${p.y},${p.z}`;
     if (!this.blocks.has(key)) this.blocks.set(key, new Block(this, p, this.terrain ? this.terrain(p) : p.y < 64 ? "minecraft:stone" : "minecraft:air"));
@@ -86,7 +90,28 @@ export class Dimension {
   spawnItem(item, loc) { const entity = new Entity("minecraft:item", this, loc); entity.item = item.clone(); return entity; }
   getEntities(options = {}) { return [...entities.values()].filter(e => e.isValid && (e.loadAt ?? 0) <= system.currentTick && e.dimension === this && (!options.type || e.typeId === options.type) && (!options.location || Math.hypot(e.location.x - options.location.x, e.location.y - options.location.y, e.location.z - options.location.z) <= (options.maxDistance ?? Infinity))); }
   getPlayers(options = {}) { return this.getEntities({...options, type: "minecraft:player"}); }
-  runCommand(cmd) { this.commands.push(cmd); if (this.failCommands) throw new Error("quota"); if ((cmd.includes("tickingarea add") || cmd.includes("tickingarea preload")) && this.loadWorks) this.unloaded = false; return {successCount: 1}; }
+  runCommand(cmd) {
+    this.commands.push(cmd);
+    if (this.failCommands) throw new Error("command unavailable");
+    for (const [name, area] of this.areas) if (area.removeAt <= system.currentTick) this.areas.delete(name);
+    const args = cmd.split(" ");
+    if (args[0] === "tickingarea") {
+      if (args[1] === "remove") {
+        const area = this.areas.get(args[2]);
+        if (!area) return {successCount: 0};
+        if (this.deferAreaRemoval) area.removeAt = system.currentTick + 1;
+        else this.areas.delete(args[2]);
+        return {successCount: 1};
+      }
+      if (args[1] === "preload") return {successCount: this.areas.has(args[2]) ? 1 : 0};
+      if (args[1] === "add") {
+        const name = args[8];
+        if (this.areas.has(name) || this.areas.size >= this.areaLimit) return {successCount: 0};
+        this.areas.set(name, {minX: Math.floor(Number(args[2]) / 16), maxX: Math.floor(Number(args[5]) / 16), minZ: Math.floor(Number(args[4]) / 16), maxZ: Math.floor(Number(args[7]) / 16), readyAt: system.currentTick + this.loadDelay});
+      }
+    }
+    return {successCount: 1};
+  }
 }
 export const dims = new Map(["minecraft:overworld", "minecraft:nether", "minecraft:the_end"].map(id => [id, new Dimension(id)]));
 export const world = {properties: new Map(), beforeEvents: eventSignals(), afterEvents: eventSignals(), gameRules: {keepInventory: true}, getDynamicProperty(k) { return this.properties.get(k); }, setDynamicProperty(k, v) { v === undefined ? this.properties.delete(k) : this.properties.set(k, v); }, getDynamicPropertyIds() { return [...this.properties.keys()]; }, getDimension(id) { return dims.get(id.includes(":") ? id : `minecraft:${id}`); }, getEntity(id) { if (id === "invalid-native-id") throw new Error("InvalidEntityError"); const entity = entities.get(id); return entity && (entity.loadAt ?? 0) <= system.currentTick ? entity : undefined; }, getAllPlayers() { return [...entities.values()].filter(e => e.isValid && e.typeId === "minecraft:player"); }, getDefaultSpawnLocation() { return {x: 0, y: 64, z: 0}; }};

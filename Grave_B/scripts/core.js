@@ -2,7 +2,7 @@
 /** @typedef {{types: number, stacks: number, total: number}} Statistics */
 /** @typedef {{id: number, ownerId: string, ownerName: string, blockId: string, original: Position, death: Position, current: Position, status: string, everMoved: boolean, xp: number, statistics: Statistics, storageId: string, storagePosition?: Position, markerId?: string, dropId?: string, holderId?: string, openedBy?: string, xpPaid?: boolean, createdAt: number, legacy?: boolean}} Grave */
 
-export const VERSION = "2.0.15";
+export const VERSION = "2.0.16";
 export const GRAVE_IDS = ["effect99:grave", "effect99:wooden_grave", "effect99:stone_grave", "effect99:stone_cross_grave", "effect99:stone_slab_grave", "effect99:blackstone_grave", "effect99:golden_blackstone_grave", "effect99:golden_cross_netherite_grave", "effect99:golden_netherite_grave"];
 export const GRAVE_ITEM = "lanshiyi:gravestone";
 export const KEY = "effect99:key";

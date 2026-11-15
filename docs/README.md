@@ -10,5 +10,5 @@
 | 修改和提交项目 | [贡献指南](../CONTRIBUTING.md) |
 | 升版、打包、发布和恢复中断 | [发布流程](RELEASING.md) |
 | 了解整理范围和真实仓库状态 | [维护记录](MAINTENANCE.md) |
-| 查阅版本变化 | [更新日志](../CHANGELOG.md)、[2.0.15发布说明](RELEASE-2.0.15.md) |
+| 查阅版本变化 | [更新日志](../CHANGELOG.md)、[2.0.16发布说明](RELEASE-2.0.16.md) |
 | 归属和敏感问题反馈 | [归属说明](../NOTICE.md)、[安全反馈](../SECURITY.md) |

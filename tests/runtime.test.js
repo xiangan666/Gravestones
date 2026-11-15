@@ -18,7 +18,7 @@ const overworld = mc.world.getDimension("overworld");
 let counter = 0;
 function fresh() {
   mc.entities.clear();
-  for (const dim of mc.dims.values()) { dim.blocks.clear(); dim.terrain = undefined; dim.unloaded = false; dim.loadWorks = true; dim.failCommands = false; dim.commands.length = 0; }
+  for (const dim of mc.dims.values()) { dim.blocks.clear(); dim.terrain = undefined; dim.unloaded = false; dim.loadWorks = true; dim.failCommands = false; dim.commands.length = 0; dim.areas.clear(); dim.areaLimit = 10; dim.loadDelay = 0; dim.deferAreaRemoval = false; }
   store.locks.clear(); ui.responses.length = 0;
   const owner = new mc.Player("lanshiyi", overworld, {x: (++counter) * 100, y: 64, z: 0});
   owner.inventory.setItem(0, new mc.ItemStack("minecraft:diamond", 3));
@@ -86,12 +86,38 @@ test("传送成功扣1颗珍珠、钥匙保留，复制钥匙共享用尽状态"
   assert.equal(core.countItem(owner.inventory, "minecraft:ender_pearl"), 2); assert.equal(store.keyUsed(key), true); assert.equal(owner.inventory.getItem(0).typeId, core.KEY);
   await menu.teleportToGrave(owner, token); assert.equal(core.countItem(owner.inventory, "minecraft:ender_pearl"), 2);
 });
+test("跨维度传送使原库存句柄失效仍能完成，钥匙次数正确且只扣一次费用", async () => {
+  const owner = fresh(); const {grave, key} = death(owner);
+  owner.teleport({x: 0, y: 64, z: 0}, {dimension: mc.world.getDimension("nether")});
+  owner.inventory.setItem(1, new mc.ItemStack("minecraft:ender_pearl", 2));
+  const previous = owner.inventory;
+  const tryTeleport = owner.tryTeleport.bind(owner);
+  owner.tryTeleport = (location, options) => {
+    const result = tryTeleport(location, options);
+    if (result) {
+      owner.inventory = new mc.Container(previous.size);
+      previous.slots.forEach((item, slot) => owner.inventory.setItem(slot, item));
+      previous.setItem = () => { throw new Error("InvalidContainerError"); };
+    }
+    return result;
+  };
+  await menu.teleportToGrave(owner, key.getDynamicProperty(core.TOKEN_PROPERTY));
+  assert.equal(owner.dimension, overworld);
+  assert.equal(core.countItem(owner.inventory, "minecraft:ender_pearl"), 1);
+  assert.equal(store.keyUsed(key), true);
+  assert.match(owner.inventory.getItem(0).getLore().join(""), /传送次数：0\/1/);
+  assert.match(owner.messages.at(-1), /已传送至墓碑/);
+  assert.equal(store.locks.has(grave.id), false);
+  assert.equal(overworld.areas.has(`ls_tp_${grave.id}`), false);
+});
+
 test("珍珠不足、失败或取消的传送不扣费不消耗次数", async () => {
   const owner = fresh(); const {key} = death(owner); const token = key.getDynamicProperty(core.TOKEN_PROPERTY);
   await menu.teleportToGrave(owner, token); assert.equal(store.keyUsed(key), false);
   owner.inventory.setItem(1, new mc.ItemStack("minecraft:ender_pearl")); owner.teleportWorks = false;
   await menu.teleportToGrave(owner, token);
   assert.equal(core.countItem(owner.inventory, "minecraft:ender_pearl"), 1); assert.equal(store.keyUsed(key), false);
+  assert.match(owner.inventory.getItem(0).getLore().join(""), /传送次数：1\/1/);
 });
 test("未加载区块可通过临时区域加载后传送，结束后清理区域", async () => {
   const owner = fresh(); const {grave, key} = death(owner); owner.inventory.setItem(1, new mc.ItemStack("minecraft:ender_pearl"));
@@ -99,12 +125,172 @@ test("未加载区块可通过临时区域加载后传送，结束后清理区�
   await menu.teleportToGrave(owner, key.getDynamicProperty(core.TOKEN_PROPERTY));
   assert.equal(store.keyUsed(key), true); assert.ok(overworld.commands.some(c => c.includes(`tickingarea remove ls_tp_${grave.id}`)));
 });
+test("三种来源维度均可传送到三种目标维度的远端正负坐标，不换算下界坐标", async () => {
+  const targets = [
+    {dimension: "minecraft:overworld", x: -12000000, y: 64, z: 12000000},
+    {dimension: "minecraft:nether", x: 1234567, y: 64, z: -7654321},
+    {dimension: "minecraft:the_end", x: -10000000, y: 64, z: -10000000}
+  ];
+  for (const source of mc.dims.values()) for (const original of targets) {
+    const owner = fresh(); const {grave, key, block} = death(owner);
+    const target = mc.world.getDimension(original.dimension);
+    block.setType("minecraft:air");
+    grave.original = {...original}; grave.current = {...original};
+    target.getBlock(original).setType(grave.blockId);
+    store.getEntity(grave.markerId).teleport({x: original.x + 0.5, y: original.y + 1.15, z: original.z + 0.5}, {dimension: target});
+    store.saveGrave(grave);
+    owner.teleport({x: 0, y: 64, z: 0}, {dimension: source});
+    owner.inventory.setItem(1, new mc.ItemStack("minecraft:ender_pearl", 2));
+    target.unloaded = true;
+    await menu.teleportToGrave(owner, key.getDynamicProperty(core.TOKEN_PROPERTY));
+    assert.equal(owner.dimension.id, original.dimension);
+    assert.ok(Math.hypot(owner.location.x - original.x, owner.location.z - original.z) <= 33);
+    assert.equal(core.countItem(owner.inventory, "minecraft:ender_pearl"), 1);
+    assert.equal(store.keyUsed(key), true);
+    assert.equal(store.locks.has(grave.id), false);
+    assert.equal(target.areas.has(`ls_tp_${grave.id}`), false);
+  }
+});
+
+test("完整加载范围被边界拒绝时，退回墓碑区块仍可安全传送", async () => {
+  for (const throws of [true, false]) {
+    const owner = fresh(); const {grave, key} = death(owner);
+    owner.inventory.setItem(1, new mc.ItemStack("minecraft:ender_pearl"));
+    overworld.unloaded = true;
+    const runCommand = overworld.runCommand;
+    overworld.runCommand = function(command) {
+      const args = command.split(" ");
+      if (args[0] === "tickingarea" && args[1] === "add" && args[2] !== args[5]) {
+        if (throws) throw new Error("LocationOutOfWorldBoundariesError");
+        return {successCount: 0};
+      }
+      return runCommand.call(this, command);
+    };
+    try {
+      await menu.teleportToGrave(owner, key.getDynamicProperty(core.TOKEN_PROPERTY));
+      assert.equal(store.keyUsed(key), true);
+      assert.equal(core.countItem(owner.inventory, "minecraft:ender_pearl"), 0);
+      assert.ok(Math.hypot(owner.location.x - grave.original.x, owner.location.z - grave.original.z) <= 33);
+      assert.equal(overworld.areas.size, 0);
+      assert.equal(store.locks.has(grave.id), false);
+    } finally { overworld.runCommand = runCommand; }
+  }
+});
+
 test("区块加载超时不会误判挖起或丢失，也不会扣珍珠", async () => {
   const owner = fresh(); const {grave, key} = death(owner); owner.inventory.setItem(1, new mc.ItemStack("minecraft:ender_pearl"));
   overworld.unloaded = true; overworld.loadWorks = false;
+  const started = mc.system.currentTick;
   await menu.teleportToGrave(owner, key.getDynamicProperty(core.TOKEN_PROPERTY));
   assert.equal(grave.status, "placed"); assert.equal(grave.everMoved, false); assert.equal(store.keyUsed(key), false); assert.equal(core.countItem(owner.inventory, "minecraft:ender_pearl"), 1);
   assert.match(owner.messages.at(-1), /区块尚未加载/);
+  assert.ok(mc.system.currentTick >= started + 400);
+  assert.equal(overworld.areas.has(`ls_tp_${grave.id}`), false);
+});
+
+test("传送回收保险库冗余命令区域，配额满时保留其他区域并成功加载", async () => {
+  const owner = fresh(); const {grave, key} = death(owner);
+  owner.inventory.setItem(1, new mc.ItemStack("minecraft:ender_pearl"));
+  overworld.runCommand("tickingarea add 0 0 0 15 0 15 lanshiyi_grave_vault true");
+  for (let i = 0; i < 9; i++) overworld.runCommand(`tickingarea add ${20000 + i * 32} 0 0 ${20000 + i * 32} 0 0 other_${i} true`);
+  overworld.unloaded = true;
+  await menu.teleportToGrave(owner, key.getDynamicProperty(core.TOKEN_PROPERTY));
+  assert.equal(store.keyUsed(key), true);
+  assert.equal(overworld.areas.size, 9);
+  assert.ok([...overworld.areas.keys()].every(name => name.startsWith("other_")));
+  assert.ok(store.getEntity(mc.world.getDynamicProperty("lanshiyi:vault_anchor")));
+  assert.equal(store.locks.has(grave.id), false);
+});
+
+test("首次生成远端区块超过80tick时继续等待，成功后仅扣一次费用", async () => {
+  const owner = fresh(); const {grave, key} = death(owner);
+  owner.inventory.setItem(1, new mc.ItemStack("minecraft:ender_pearl", 2));
+  overworld.unloaded = true; overworld.loadDelay = 120;
+  const started = mc.system.currentTick;
+  await menu.teleportToGrave(owner, key.getDynamicProperty(core.TOKEN_PROPERTY));
+  assert.ok(mc.system.currentTick >= started + 120);
+  assert.equal(store.keyUsed(key), true);
+  assert.equal(core.countItem(owner.inventory, "minecraft:ender_pearl"), 1);
+  assert.equal(overworld.areas.has(`ls_tp_${grave.id}`), false);
+});
+
+test("同编号残留临时区域先释放再加载，不泄漏或删除其他区域", async () => {
+  const owner = fresh(); const {grave, key} = death(owner);
+  owner.inventory.setItem(1, new mc.ItemStack("minecraft:ender_pearl"));
+  overworld.runCommand(`tickingarea add 20000 0 0 20000 0 0 ls_tp_${grave.id} true`);
+  overworld.unloaded = true; overworld.deferAreaRemoval = true;
+  await menu.teleportToGrave(owner, key.getDynamicProperty(core.TOKEN_PROPERTY));
+  assert.equal(store.keyUsed(key), true);
+  await store.waitTicks(2);
+  assert.equal(overworld.runCommand(`tickingarea preload ls_tp_${grave.id} true`).successCount, 0);
+  assert.equal(overworld.areas.size, 0);
+});
+
+test("真正无可用名额且不属于模组的区域不被清除，失败保持墓碑和费用", async () => {
+  const owner = fresh(); const {grave, key} = death(owner);
+  owner.inventory.setItem(1, new mc.ItemStack("minecraft:ender_pearl"));
+  for (let i = 0; i < 10; i++) overworld.runCommand(`tickingarea add ${20000 + i * 32} 0 0 ${20000 + i * 32} 0 0 other_${i} true`);
+  const before = [...overworld.areas.entries()];
+  overworld.unloaded = true;
+  await menu.teleportToGrave(owner, key.getDynamicProperty(core.TOKEN_PROPERTY));
+  assert.deepEqual([...overworld.areas.entries()], before);
+  assert.equal(store.keyUsed(key), false);
+  assert.equal(core.countItem(owner.inventory, "minecraft:ender_pearl"), 1);
+  assert.equal(grave.status, "placed");
+  assert.equal(store.locks.has(grave.id), false);
+});
+
+test("慢加载期间切换钥匙立即取消，不等待完整超时且清理临时区域", async () => {
+  const owner = fresh(); const {grave, key} = death(owner);
+  owner.inventory.setItem(1, new mc.ItemStack("minecraft:ender_pearl"));
+  overworld.unloaded = true; overworld.loadDelay = 300;
+  const started = mc.system.currentTick;
+  const pending = menu.teleportToGrave(owner, key.getDynamicProperty(core.TOKEN_PROPERTY));
+  await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+  owner.selectedSlotIndex = 1;
+  await pending;
+  assert.ok(mc.system.currentTick < started + 300);
+  assert.equal(store.keyUsed(key), false);
+  assert.equal(core.countItem(owner.inventory, "minecraft:ender_pearl"), 1);
+  assert.equal(overworld.areas.has(`ls_tp_${grave.id}`), false);
+  assert.equal(store.locks.has(grave.id), false);
+  assert.match(owner.messages.at(-1), /钥匙已切换/);
+});
+
+test("慢加载期间玩家失效及时取消，保留费用并清理临时区域和锁", async () => {
+  const owner = fresh(); const {grave, key} = death(owner);
+  owner.inventory.setItem(1, new mc.ItemStack("minecraft:ender_pearl"));
+  overworld.unloaded = true; overworld.loadDelay = 300;
+  const started = mc.system.currentTick;
+  const pending = menu.teleportToGrave(owner, key.getDynamicProperty(core.TOKEN_PROPERTY));
+  await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+  owner.isValid = false;
+  await pending;
+  assert.ok(mc.system.currentTick < started + 300);
+  assert.equal(store.keyUsed(key), false);
+  assert.equal(core.countItem(owner.inventory, "minecraft:ender_pearl"), 1);
+  assert.equal(overworld.areas.has(`ls_tp_${grave.id}`), false);
+  assert.equal(store.locks.has(grave.id), false);
+});
+
+test("命令不可用但目标已加载时仍可传送，不因额外加载失败拒绝", async () => {
+  const owner = fresh(); const {key} = death(owner);
+  owner.inventory.setItem(1, new mc.ItemStack("minecraft:ender_pearl"));
+  overworld.failCommands = true;
+  await menu.teleportToGrave(owner, key.getDynamicProperty(core.TOKEN_PROPERTY));
+  assert.equal(store.keyUsed(key), true);
+  assert.equal(core.countItem(owner.inventory, "minecraft:ender_pearl"), 0);
+});
+
+test("不同墓碑同时传送，临时区域互不删除且都完成清理", async () => {
+  const owner = fresh(); const first = death(owner);
+  const other = new mc.Player("other", overworld, {x: owner.location.x + 1000, y: 64, z: 0});
+  const second = death(other);
+  for (const player of [owner, other]) player.inventory.setItem(1, new mc.ItemStack("minecraft:ender_pearl"));
+  overworld.unloaded = true; overworld.loadDelay = 20;
+  await Promise.all([menu.teleportToGrave(owner, first.key.getDynamicProperty(core.TOKEN_PROPERTY)), menu.teleportToGrave(other, second.key.getDynamicProperty(core.TOKEN_PROPERTY))]);
+  assert.equal(store.keyUsed(first.key), true); assert.equal(store.keyUsed(second.key), true);
+  assert.equal(overworld.areas.size, 0); assert.equal(store.locks.size, 0);
 });
 
 test("远距离传送等待方块加载后延迟恢复的墓碑实体", async () => {

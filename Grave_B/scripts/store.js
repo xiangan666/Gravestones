@@ -142,6 +142,8 @@ export function ensureVault() {
     if (!anchor) anchor = dim.spawnEntity(VAULT_ANCHOR, p);
     world.setDynamicProperty("lanshiyi:vault_anchor", anchor.id);
     for (const extra of anchors) if (extra.id !== anchor.id) extra.remove();
+    // The native anchor now owns loading; retaining the recovery area wastes a command-area slot.
+    try { dim.runCommand("tickingarea remove lanshiyi_grave_vault"); } catch { /* Usually already absent. */ }
     return true;
   } catch (error) { log(error); }
   return false;
@@ -179,8 +181,8 @@ export async function loadStorage(grave) {
   if (!p || !safeBlock(dimension(p.dimension), p)) throw new Error("保险库区块加载超时，请检查命令权限或常加载区域配额后重试。遗物记录和经验保持不变。");
   throw new Error(`保险库区块已加载，但未找到墓碑 #${grave.id} 的库存实体。没有创建空库存或删除墓碑，请保留存档并联系管理员。`);
 }
-export function loadDestination(grave, radius = 0) {
-  return loadDestinationAsync(grave, radius);
+export function loadDestination(grave, radius = 0, isActive = () => true) {
+  return loadDestinationAsync(grave, radius, isActive);
 }
 /** Blocks can become available before saved entities finish loading. Never spawn a replacement here. */
 export async function loadDestinationMarker(grave, dim) {
@@ -202,24 +204,47 @@ export async function loadDestinationMarker(grave, dim) {
   return undefined;
 }
 /** An unloaded destination is unknown, never 'mined' or 'missing'. */
-async function loadDestinationAsync(grave, radius) {
+async function loadDestinationAsync(grave, radius, isActive) {
   const dim = dimension(grave.original.dimension);
   let block = safeBlock(dim, grave.original);
   if (block && !radius) return {dim, block, release() {}};
+  ensureVault();
   const areaName = `ls_tp_${grave.id}`;
   let created = false;
+  let fullRange = true;
+  let retained = false;
+  const release = () => {
+    if (!created) return;
+    try { dim.runCommand(`tickingarea remove ${areaName}`); } catch (e) { log(e); }
+    created = false;
+  };
   try {
     const p = grave.original;
-    created = dim.runCommand(`tickingarea add ${p.x - radius} ${p.y} ${p.z - radius} ${p.x + radius} ${p.y} ${p.z + radius} ${areaName} true`).successCount > 0;
-    if (!created) return block ? {dim, block, release() {}} : undefined;
-    for (let attempt = 0; attempt < 40; attempt++) {
+    // The caller holds this grave's lock, so an existing same-name area is stale.
+    try { dim.runCommand(`tickingarea remove ${areaName}`); } catch { /* Normally absent. */ }
+    await waitTicks(2);
+    if (!isActive()) return undefined;
+    try {
+      created = dim.runCommand(`tickingarea add ${p.x - radius} ${p.y} ${p.z - radius} ${p.x + radius} ${p.y} ${p.z + radius} ${areaName} true`).successCount > 0;
+    } catch { /* A valid grave can be too close to the world boundary for the full range. */ }
+    if (!created && radius) {
+      fullRange = false;
+      created = dim.runCommand(`tickingarea add ${p.x} ${p.y} ${p.z} ${p.x} ${p.y} ${p.z} ${areaName} true`).successCount > 0;
+    }
+    if (!created) { block = safeBlock(dim, p); return block ? {dim, block, release() {}} : undefined; }
+    // First-time generation on slower devices can exceed the old four-second budget.
+    for (let elapsed = 0; elapsed < 400; elapsed += 2) {
+      if (!isActive()) return undefined;
       await waitTicks(2);
       block = safeBlock(dim, grave.original);
-      const corners = [-radius, radius].every(dx => [-radius, radius].every(dz => safeBlock(dim, {x: p.x + dx, y: p.y, z: p.z + dz})));
-      if (block && (corners || attempt === 39)) return {dim, block, release() { try { dim.runCommand(`tickingarea remove ${areaName}`); } catch (e) { log(e); } }};
+      const corners = !fullRange || [-radius, radius].every(dx => [-radius, radius].every(dz => safeBlock(dim, {x: p.x + dx, y: p.y, z: p.z + dz})));
+      if (block && (corners || elapsed === 398)) { retained = true; return {dim, block, release}; }
     }
-  } catch (e) { log(e); if (block) return {dim, block, release() {}}; }
-  if (created) { try { dim.runCommand(`tickingarea remove ${areaName}`); } catch (e) { log(e); } }
+  } catch (e) {
+    log(`墓碑 #${grave.id} 目标加载失败：${e}`);
+    block = safeBlock(dim, grave.original);
+    if (block) { retained = true; return {dim, block, release}; }
+  } finally { if (!retained) release(); }
   return undefined;
 }
 export function teleportStatus(item) { return teleportReason(itemGrave(item), keyUsed(item)); }

@@ -4,14 +4,14 @@
 
 ## 版本事实源与准备
 
-版本事实源为`package.json`。当前工程版本2.0.15；稳定Script API依赖固定为2.0.0，最低基岩引擎1.21.90。不要修改现有包UUID、物品/实体标识或原作者记录。
+版本事实源为`package.json`。当前工程版本2.0.16；稳定Script API依赖固定为2.0.0，最低基岩引擎1.21.90。不要修改现有包UUID、物品/实体标识或原作者记录。
 
 在项目根目录使用PowerShell：
 
 ```powershell
 npm ci
-# 下一轮按实际影响选择新版本；例如2.0.15之后的兼容修正：
-npm run version:sync -- 2.0.16
+# 下一轮按实际影响选择新版本；例如2.0.16之后的兼容修正：
+npm run version:sync -- 2.0.17
 npm run check
 npm test
 npm run build
@@ -32,22 +32,22 @@ npm run build:verify
 新版本构建保留旧安装包、校验文件与其他资料；只更新当前版本的两个产物。已发布版本禁止更改，产生新修改必须递增版本。SHA-256说明内容一致性，不是发布者身份签名。
 
 ```powershell
-Get-FileHash -Algorithm SHA256 dist/Gravestones-lanshiyi-v2.0.15.mcaddon
-Get-Content dist/Gravestones-lanshiyi-v2.0.15.mcaddon.sha256
+Get-FileHash -Algorithm SHA256 dist/Gravestones-lanshiyi-v2.0.16.mcaddon
+Get-Content dist/Gravestones-lanshiyi-v2.0.16.mcaddon.sha256
 ```
 
 ## 提交、标签与自动发布
 
 先审阅`git status --short`、`git diff`和暂存差异，再显式暂存本任务文件。沿用已有分支流程和真实保护规则，不使用强推或移动已发布标签；只有实际远程仓库可作为发布目的地。
 
-以下是当前2.0.15的发布示例；后续版本按事实源替换。提交步骤应在测试通过、发布说明和暂存范围已核对后执行。
+以下是当前2.0.16的发布示例；后续版本按事实源替换。提交步骤应在测试通过、发布说明和暂存范围已核对后执行。
 
 ```powershell
 git diff --cached --check
-git commit -m "build: 完善版本验证和发布流程"
+git commit -m "fix(teleport): 修正远端加载与跨维度传送并升级至 2.0.16"
 git push origin main
-git tag -a v2.0.15 -m "墓碑模组 2.0.15"
-git push origin v2.0.15
+git tag -a v2.0.16 -m "墓碑模组 2.0.16"
+git push origin v2.0.16
 ```
 
 `validate.yml`在分支push/PR或手动触发时，在Windows和Linux运行`npm ci`、check、test、build和build:verify。检查job只有读取权限，过期检查可取消，当前版本资产保留14天。远程Actions固定完整提交SHA，更新时核实上游并审阅差异。
@@ -62,9 +62,9 @@ git push origin v2.0.15
 
 ```powershell
 gh run list --repo xiangan666/Gravestones --limit 10
-gh release view v2.0.15 --repo xiangan666/Gravestones --json url,isDraft,isPrerelease,tagName,assets
+gh release view v2.0.16 --repo xiangan666/Gravestones --json url,isDraft,isPrerelease,tagName,assets
 # 中断且需要恢复时，重用同一标签和发布流程：
-gh workflow run release.yml --repo xiangan666/Gravestones -f tag=v2.0.15
+gh workflow run release.yml --repo xiangan666/Gravestones -f tag=v2.0.16
 ```
 
 手动入口从已推送标签检出对应源码；失败的草稿可以继续更新本版资产，已正式发布的内容只读取核对，不替换。仓库启用不可变发布时，也必须在草稿阶段准备全部资产再发布。权限、配额、评审或网络失败时读取Actions日志，修复原因并继续相同发布流程，不创建重复版本或绕过保护。
@@ -72,9 +72,9 @@ gh workflow run release.yml --repo xiangan666/Gravestones -f tag=v2.0.15
 需要在本地继续同一流程时，使用GitHub CLI登录并确保标签已在远程、HEAD与之相同、工作区干净、产物构建核对通过：
 
 ```powershell
-python tools/release.py --repository xiangan666/Gravestones --tag v2.0.15
+python tools/release.py --repository xiangan666/Gravestones --tag v2.0.16
 # 只核对已正式发布的内容：
-python tools/release.py --repository xiangan666/Gravestones --tag v2.0.15 --verify-only
+python tools/release.py --repository xiangan666/Gravestones --tag v2.0.16 --verify-only
 ```
 
 CI和本地调用相同工具，不能另开一套绕过标签/资产检查的发布路径。GitHub CLI不在PATH时可通过当前进程环境变量`GRAVESTONES_GH`提供其可执行文件路径；凭证由GitHub CLI管理，不写入项目文件。发布核对报告为`dist/release-v<版本>.json`，CI另保留30天工件。
